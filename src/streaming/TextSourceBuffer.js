@@ -176,6 +176,7 @@ function TextSourceBuffer() {
             textTrackInfo.isFragmented = isFragmented;
             textTrackInfo.isEmbedded = mediaInfo.isEmbedded ? true : false;
             textTrackInfo.kind = getKind();
+            textTrackInfo.roles = mediaInfo.roles;
             var totalNrTracks = (mediaInfos ? mediaInfos.length : 0) + embeddedTracks.length;
             textTracks.addTextTrack(textTrackInfo, totalNrTracks);
         }
@@ -363,25 +364,6 @@ function TextSourceBuffer() {
     */
     function extractCea608Data(data) {
 
-        /* Insert [time, data] pairs in order into array. */
-        var insertInOrder = function (arr, time, data) {
-            var len = arr.length;
-            if (len > 0) {
-                if (time >= arr[len - 1][0]) {
-                    arr.push([time, data]);
-                } else {
-                    for (var pos = len - 1; pos >= 0; pos--) {
-                        if (time < arr[pos][0]) {
-                            arr.splice(pos, 0, [time, data]);
-                            break;
-                        }
-                    }
-                }
-            } else {
-                arr.push([time, data]);
-            }
-        };
-
         var isoFile = boxParser.parse(data);
         var moof = isoFile.getBox('moof');
         var tfdt = isoFile.getBox('tfdt');
@@ -424,7 +406,7 @@ function TextSourceBuffer() {
                 var ccData = cea608parser.extractCea608DataFromRange(raw, cea608Ranges[j]);
                 for (var k = 0; k < 2; k++) {
                     if (ccData[k].length > 0) {
-                        insertInOrder(allCcData.fields[k], sampleTime, ccData[k]);
+                        allCcData.fields[k].push([sampleTime, ccData[k]]);
                     }
                 }
             }
@@ -432,6 +414,11 @@ function TextSourceBuffer() {
             accDuration += sample.sample_duration;
             startPos += sample.sample_size;
         }
+
+        // Sort by sampleTime ascending order
+        allCcData.fields[0].sort(function (a, b) { return a[0] - b[0]; });
+        allCcData.fields[1].sort(function (a, b) { return a[0] - b[0]; });
+
         var endSampleTime = baseSampleTime + accDuration;
         allCcData.startTime = baseSampleTime;
         allCcData.endTime = endSampleTime;
@@ -692,10 +679,10 @@ function TextSourceBuffer() {
 
             finalDiv.appendChild(bodyDiv);
 
-            let fontSize = { 'bodyStyle': 90 };
+            let fontSize = { 'bodyStyle': ['%', 90] };
             for (s in styleStates) {
                 if (styleStates.hasOwnProperty(s)) {
-                    fontSize[s] = 90;
+                    fontSize[s] = ['%', 90];
                 }
             }
 
@@ -710,11 +697,9 @@ function TextSourceBuffer() {
                                  regionID: region.name,
                                  videoHeight: videoElement.videoHeight,
                                  videoWidth: videoElement.videoWidth,
-                                 fontSize: fontSize || {
-                                     defaultFontSize: '100'
-                                 },
+                                 fontSize: fontSize,
                                  lineHeight: {},
-                                 linePadding: {},
+                                 linePadding: {}
                                });
         }
         return captionsArray;
@@ -830,13 +815,13 @@ function TextSourceBuffer() {
         // Is there a way to mark a text adaptation set as the default one? DASHIF meeting talk about using role which is being used for track KIND
         // Eg subtitles etc. You can have multiple role tags per adaptation Not defined in the spec yet.
         var isDefault = false;
-        if (embeddedTracks.length > 1) {
+        if (embeddedTracks.length > 1 && mediaInfo.isEmbedded) {
             isDefault = (mediaInfo.id && mediaInfo.id === 'CC1'); // CC1 if both CC1 and CC3 exist
         } else if (embeddedTracks.length === 1) {
             if (mediaInfo.id && mediaInfo.id.substring(0, 2) === 'CC') {// Either CC1 or CC3
                 isDefault = true;
             }
-        } else {
+        } else if (embeddedTracks.length === 0) {
             isDefault = (mediaInfo.index === mediaInfos[0].index);
         }
         return isDefault;
@@ -853,10 +838,15 @@ function TextSourceBuffer() {
         return parser;
     }
 
+    function getCurrentTrackIdx() {
+        return textTracks.getCurrentTrackIdx();
+    }
+
     instance = {
         initialize: initialize,
         append: append,
         abort: abort,
+        getCurrentTrackIdx: getCurrentTrackIdx,
         getAllTracksAreDisabled: getAllTracksAreDisabled,
         setTextTrack: setTextTrack,
         setConfig: setConfig,

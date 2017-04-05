@@ -35,7 +35,6 @@ import StreamController from './controllers/StreamController';
 import MediaController from './controllers/MediaController';
 import TextController from './controllers/TextController';
 import ScheduleController from './controllers/ScheduleController';
-import RulesController from './rules/RulesController';
 import MediaPlayerModel from './models/MediaPlayerModel';
 import MetricsModel from './models/MetricsModel';
 import FragmentLoader from './FragmentLoader';
@@ -98,13 +97,11 @@ function StreamProcessor(config) {
             dashMetrics: DashMetrics(context).getInstance(),
             dashManifestModel: DashManifestModel(context).getInstance(),
             timelineConverter: timelineConverter,
-            rulesController: RulesController(context).getInstance(),
-            mediaPlayerModel: MediaPlayerModel(context).getInstance(),
+            mediaPlayerModel: MediaPlayerModel(context).getInstance()
         });
 
         bufferController.initialize(type, mediaSource, this);
         scheduleController.initialize(type, this);
-
 
         fragmentLoader = FragmentLoader(context).create({
             metricsModel: MetricsModel(context).getInstance(),
@@ -117,8 +114,6 @@ function StreamProcessor(config) {
 
         representationController = RepresentationController(context).create();
         representationController.initialize(this);
-
-
     }
 
     function reset(errored) {
@@ -269,7 +264,7 @@ function StreamProcessor(config) {
                 streamController: StreamController(context).getInstance(),
                 mediaController: MediaController(context).getInstance(),
                 adapter: adapter,
-                textSourceBuffer: TextSourceBuffer(context).getInstance(),
+                textSourceBuffer: TextSourceBuffer(context).getInstance()
             });
         }else {
             controller = TextController(context).create({

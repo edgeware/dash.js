@@ -33,16 +33,15 @@ import DashMetrics from '../DashMetrics';
 import TimelineConverter from '../utils/TimelineConverter';
 import AbrController from '../../streaming/controllers/AbrController';
 import PlaybackController from '../../streaming/controllers/PlaybackController';
-import StreamController from '../../streaming/controllers/StreamController';
 import ManifestModel from '../../streaming/models/ManifestModel';
 import MetricsModel from '../../streaming/models/MetricsModel';
-import MediaPlayerModel from '../../streaming/models/MediaPlayerModel';
 import DOMStorage from '../../streaming/utils/DOMStorage';
 import Error from '../../streaming/vo/Error';
 import EventBus from '../../core/EventBus';
 import Events from '../../core/events/Events';
 import MediaPlayerEvents from '../../streaming/MediaPlayerEvents';
 import FactoryMaker from '../../core/FactoryMaker';
+import Representation from '../vo/Representation';
 
 function RepresentationController() {
 
@@ -60,15 +59,13 @@ function RepresentationController() {
         streamProcessor,
         abrController,
         indexHandler,
-        streamController,
         playbackController,
         manifestModel,
         metricsModel,
         domStorage,
         timelineConverter,
         dashManifestModel,
-        dashMetrics,
-        mediaPlayerModel;
+        dashMetrics;
 
     function setup() {
         data = null;
@@ -77,7 +74,6 @@ function RepresentationController() {
         availableRepresentations = [];
 
         abrController = AbrController(context).getInstance();
-        streamController = StreamController(context).getInstance();
         playbackController = PlaybackController(context).getInstance();
         manifestModel = ManifestModel(context).getInstance();
         metricsModel = MetricsModel(context).getInstance();
@@ -85,13 +81,11 @@ function RepresentationController() {
         timelineConverter = TimelineConverter(context).getInstance();
         dashManifestModel = DashManifestModel(context).getInstance();
         dashMetrics = DashMetrics(context).getInstance();
-        mediaPlayerModel = MediaPlayerModel(context).getInstance();
 
         eventBus.on(Events.QUALITY_CHANGE_REQUESTED, onQualityChanged, instance);
         eventBus.on(Events.REPRESENTATION_UPDATED, onRepresentationUpdated, instance);
         eventBus.on(Events.WALLCLOCK_TIME_UPDATED, onWallclockTimeUpdated, instance);
         eventBus.on(Events.BUFFER_LEVEL_UPDATED, onBufferLevelUpdated, instance);
-
     }
 
     function setConfig(config) {
@@ -139,7 +133,6 @@ function RepresentationController() {
         updating = true;
         availableRepresentations = [];
         abrController = null;
-        streamController = null;
         playbackController = null;
         manifestModel = null;
         metricsModel = null;
@@ -147,8 +140,6 @@ function RepresentationController() {
         timelineConverter = null;
         dashManifestModel = null;
         dashMetrics = null;
-        mediaPlayerModel = null;
-
     }
 
     function updateData(dataValue, adaptation, type) {
@@ -214,7 +205,7 @@ function RepresentationController() {
     function isAllRepresentationsUpdated() {
         for (var i = 0, ln = availableRepresentations.length; i < ln; i++) {
             var segmentInfoType = availableRepresentations[i].segmentInfoType;
-            if (availableRepresentations[i].segmentAvailabilityRange === null || availableRepresentations[i].initialization === null ||
+            if (availableRepresentations[i].segmentAvailabilityRange === null || !Representation.hasInitialization(availableRepresentations[i]) ||
                     ((segmentInfoType === 'SegmentBase' || segmentInfoType === 'BaseURL') && !availableRepresentations[i].segments)
             ) {
                 return false;

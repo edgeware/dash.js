@@ -60,7 +60,6 @@ import {getVersionString} from './../core/Version';
 
 //Dash
 import DashAdapter from '../dash/DashAdapter';
-import DashParser from '../dash/parser/DashParser';
 import DashManifestModel from '../dash/models/DashManifestModel';
 import DashMetrics from '../dash/DashMetrics';
 import TimelineConverter from '../dash/utils/TimelineConverter';
@@ -93,6 +92,7 @@ function MediaPlayer() {
         mediaController,
         protectionController,
         metricsReportingController,
+        mssHandler,
         adapter,
         metricsModel,
         mediaPlayerModel,
@@ -729,6 +729,26 @@ function MediaPlayer() {
     }
 
     /**
+     * When switching multi-bitrate content (auto or manual mode) this property specifies the minimum bitrate allowed.
+     * If you set this property to a value higher than that currently playing, the switching engine will switch up to
+     * satisfy this requirement. If you set it to a value that is lower than the lowest bitrate, it will still play
+     * that lowest bitrate.
+     *
+     * You can set or remove this bitrate limit at anytime before or during playback. To clear this setting you must use the API
+     * and set the value param to NaN.
+     *
+     * This feature is used to force higher quality playback.
+     *
+     * @param {string} type - 'video' or 'audio' are the type options.
+     * @param {number} value - Value in kbps representing the minimum bitrate allowed.
+     * @memberof module:MediaPlayer
+     * @instance
+     */
+    function setMinAllowedBitrateFor(type, value) {
+        abrController.setMinAllowedBitrateFor(type, value);
+    }
+
+    /**
      * @param {string} type - 'video' or 'audio' are the type options.
      * @memberof module:MediaPlayer
      * @see {@link module:MediaPlayer#setMaxAllowedBitrateFor setMaxAllowedBitrateFor()}
@@ -736,6 +756,16 @@ function MediaPlayer() {
      */
     function getMaxAllowedBitrateFor(type) {
         return abrController.getMaxAllowedBitrateFor(type);
+    }
+
+    /**
+     * @param {string} type - 'video' or 'audio' are the type options.
+     * @memberof module:MediaPlayer
+     * @see {@link module:MediaPlayer#setMinAllowedBitrateFor setMinAllowedBitrateFor()}
+     * @instance
+     */
+    function getMinAllowedBitrateFor(type) {
+        return abrController.getMinAllowedBitrateFor(type);
     }
 
     /**
@@ -956,6 +986,14 @@ function MediaPlayer() {
         }
 
         textSourceBuffer.setTextTrack();
+    }
+
+    function getCurrentTextTrackIndex() {
+        let idx = NaN;
+        if (textSourceBuffer) {
+            idx = textSourceBuffer.getCurrentTrackIdx();
+        }
+        return idx;
     }
 
     /**
@@ -1734,6 +1772,7 @@ function MediaPlayer() {
             videoModel.setElement(element);
             detectProtection();
             detectMetricsReporting();
+            detectMss();
         }
         resetAndInitializePlayback();
     }
@@ -1888,15 +1927,10 @@ function MediaPlayer() {
     function createManifestLoader() {
         return ManifestLoader(context).create({
             errHandler: errHandler,
-            parser: createManifestParser(),
             metricsModel: metricsModel,
-            requestModifier: RequestModifier(context).getInstance()
+            requestModifier: RequestModifier(context).getInstance(),
+            mssHandler: mssHandler
         });
-    }
-
-    function createManifestParser() {
-        //TODO-Refactor Need to be able to switch this create out so will need API to set which parser to use?
-        return DashParser(context).create();
     }
 
     function createAdaptor() {
@@ -1948,6 +1982,22 @@ function MediaPlayer() {
             });
 
             return metricsReportingController;
+        }
+
+        return null;
+    }
+
+    function detectMss() {
+        if (mssHandler) {
+            return mssHandler;
+        }
+        // do not require MssHandler as dependencies as this is optional and intended to be loaded separately
+        let MssHandler = dashjs.MssHandler; /* jshint ignore:line */
+        if (typeof MssHandler === 'function') {//TODO need a better way to register/detect plugin components
+            mssHandler = MssHandler(context).create({
+                eventBus: eventBus,
+                mediaPlayerModel: mediaPlayerModel});
+            return mssHandler;
         }
 
         return null;
@@ -2035,6 +2085,8 @@ function MediaPlayer() {
         enableLastMediaSettingsCaching: enableLastMediaSettingsCaching,
         setMaxAllowedBitrateFor: setMaxAllowedBitrateFor,
         getMaxAllowedBitrateFor: getMaxAllowedBitrateFor,
+        setMinAllowedBitrateFor: setMinAllowedBitrateFor,
+        getMinAllowedBitrateFor: getMinAllowedBitrateFor,
         setMaxAllowedRepresentationRatioFor: setMaxAllowedRepresentationRatioFor,
         getMaxAllowedRepresentationRatioFor: getMaxAllowedRepresentationRatioFor,
         setAutoPlay: setAutoPlay,
@@ -2101,6 +2153,7 @@ function MediaPlayer() {
         displayCaptionsOnTop: displayCaptionsOnTop,
         attachVideoContainer: attachVideoContainer,
         attachTTMLRenderingDiv: attachTTMLRenderingDiv,
+        getCurrentTextTrackIndex: getCurrentTextTrackIndex,
         reset: reset
     };
 

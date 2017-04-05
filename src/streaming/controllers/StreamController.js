@@ -105,7 +105,6 @@ function StreamController() {
 
         manifestUpdater = ManifestUpdater(context).getInstance();
         manifestUpdater.setConfig({
-            log: log,
             manifestModel: manifestModel,
             dashManifestModel: dashManifestModel
         });
@@ -274,12 +273,14 @@ function StreamController() {
     }
 
     function getNextStream() {
-        const start = activeStream.getStreamInfo().start;
-        const duration = activeStream.getStreamInfo().duration;
+        if (activeStream) {
+            const start = activeStream.getStreamInfo().start;
+            const duration = activeStream.getStreamInfo().duration;
 
-        return streams.filter(function (stream) {
-            return (stream.getStreamInfo().start === (start + duration));
-        })[0];
+            return streams.filter(function (stream) {
+                return (stream.getStreamInfo().start === (start + duration));
+            })[0];
+        }
     }
 
     function switchStream(oldStream, newStream, seekTime) {
@@ -296,7 +297,6 @@ function StreamController() {
         if (oldStream) oldStream.deactivate();
         activeStream = newStream;
         playbackController.initialize(activeStream.getStreamInfo());
-        videoTrackDetected = checkVideoPresence();
 
         //TODO detect if we should close and repose or jump to activateStream.
         openMediaSource(seekTime);
@@ -341,6 +341,8 @@ function StreamController() {
                 });
                 playbackController.seek(startTime); //seek to period start time
             }
+        }else {
+            videoTrackDetected = checkVideoPresence();
         }
 
         activeStream.startEventController();
@@ -568,6 +570,10 @@ function StreamController() {
         }
 
         hasMediaError = true;
+
+        if (e.error.message) {
+            msg += ' (' + e.error.message + ')';
+        }
 
         if (e.error.msExtendedCode) {
             msg += ' (0x' + (e.error.msExtendedCode >>> 0).toString(16).toUpperCase() + ')';
